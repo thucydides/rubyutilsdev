@@ -5,49 +5,35 @@
 require 'search_source.rb'
 require 'open-uri'
 require 'iconv'
-require 'htmlentities'
 
 include SearchSource
-#include Enumerable
-#search term to test on intl. encodings
-@sterm = "البحر"
-puts @sterm
 
-
-def inner_text(node)
-  puts node.innerHTML
-  text = node.innerHTML.gsub(%r{<.*?>}, "").strip
-   HTMLEntities.new.decode(text)
+def get_arabic_words(sterm= "البحر", lang=/\p{Arabic}/)
+  results = Searcher.send :google, sterm
+  results.each{|href|
+    begin
+    open(href) {|page|
+      next if page.charset !~ /utf\-8/
+      htm = page.read.encode("utf-8")
+      doc = Hpricot(htm)
+      (doc/"a").each{|node|
+        inn = node.inner_text
+        #for some reason, the encoding coming out of inner_text of the text is not labeled as UTF8 by the encompassed Encoding object
+        #so we have to change that by forcing the encoding
+        inn.force_encoding("utf-8")
+        if inn =~ lang
+          puts inn
+        end
+      }
+    }
+    rescue
+      puts "error~"
+      puts $!
+    end
+    }
 end
 
 
+get_arabic_words
 
-results = Searcher.send :google, @sterm.to_s
-words = []
-results.each{|href|
-  begin
-  open(href) {|page|
-    next if page.charset !~ /utf\-8/
-    puts href + " : " + page.charset
-    page.rewind
-    #doc = Iconv.conv('utf-8', page.charset, page.readlines.join("\n"))
-    doc = page.readlines.join("\n")
-    puts "res"
-    doc = Hpricot(doc)
-    puts "After"
-    (doc/"li").each{|node|
-      inner_text(node).each_line{|line|
-      puts line.encoding.name
-      if line =~ /\p{Arabic}/
-        puts line
-        
-      end
-    }
-    }
-  }
-  rescue
-    puts $!
-  end
-
-}
 
